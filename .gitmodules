@@ -1,0 +1,6 @@
+[submodule "msg"]
+	path = msg
+	url = git@github.com:mikilukasik/msg.git
+[submodule "chss-module-engine"]
+	path = chss-module-engine
+	url = git@github.com:mikilukasik/chss-module-engine.git
