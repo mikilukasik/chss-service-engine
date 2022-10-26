@@ -1,6 +1,6 @@
-// import { sampleRequestHandler } from "./sampleSocket/sampleRequestHandler";
+import { predictMoveHandler } from './predictionSocket/predictMoveHandler.js';
 
 export const initRoutes = ({ msg }) => {
-  // const sampleSocket = msg.ws("/sampleSocket");
-  // sampleSocket.on(...sampleRequestHandler);
+  const predictionSocket = msg.ws('/predictionSocket');
+  predictionSocket.on(...predictMoveHandler);
 };
