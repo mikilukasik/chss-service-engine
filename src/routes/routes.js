@@ -1,6 +1,6 @@
-import { predictMoveHandler } from './predictionSocket/predictMoveHandler.js';
+import { predictMoveHandler } from './engineSocket/predictMoveHandler.js';
 
 export const initRoutes = ({ msg }) => {
-  const predictionSocket = msg.ws('/predictionSocket');
-  predictionSocket.on(...predictMoveHandler);
+  const engineSocket = msg.ws('/engineSocket');
+  engineSocket.on(...predictMoveHandler);
 };
