@@ -17,7 +17,7 @@ const getModel = async ({ modelName }) => {
     modelUrl: `http://localhost:3300/models/${modelName}/model.json`,
   });
 
-  loadedModels[modelName] = { predict }; //{ model, transforms };
+  loadedModels[modelName] = { predict };
   return loadedModels[modelName];
 };
 

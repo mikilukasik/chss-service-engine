@@ -1,5 +1,6 @@
 import msgService from './msg/src/service.js';
 import { initRoutes } from './src/routes/routes.js';
+import { initWorkersService } from './src/services/workersService.js';
 
 const SERVICE_NAME = 'chss-service-engine';
 const PORT = 5768;
@@ -16,5 +17,6 @@ msg
   .then(() => {
     console.log('MSG connected: ' + SERVICE_NAME);
     initRoutes({ msg });
+    initWorkersService();
   })
   .catch(console.error);
