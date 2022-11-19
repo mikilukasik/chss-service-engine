@@ -17,6 +17,11 @@ export const predictOnGridHandler = [
     const { nextMoves, board, lmf, lmt } = game;
     const started = Date.now();
 
+    const progress = {
+      total: nextMoves.length,
+      completed: 0,
+    };
+
     const { modelName, cutoff } = deepMoveSorters.shift();
 
     const moveEvaluator = await getMoveEvaluator({ game, modelName: modelName });
@@ -69,6 +74,7 @@ export const predictOnGridHandler = [
             busyClients[key] = sendData;
           }).then((nmVal) => {
             delete busyClients[id];
+            progress.completed += 1;
 
             if (nmVal > value) {
               value = nmVal;
@@ -78,6 +84,8 @@ export const predictOnGridHandler = [
               pieceValue = nmVal - moveAiValue;
               winningMove = move;
             }
+
+            comms.data(progress);
           });
         }),
       );
@@ -119,6 +127,7 @@ export const predictOnGridHandler = [
           busyClients[key] = sendData;
         }).then((nmVal) => {
           delete busyClients[id];
+          progress.completed += 1;
 
           if (nmVal < value) {
             value = nmVal;
@@ -128,6 +137,8 @@ export const predictOnGridHandler = [
             pieceValue = nmVal - moveAiValue;
             winningMove = move;
           }
+
+          comms.data(progress);
         });
       }),
     );

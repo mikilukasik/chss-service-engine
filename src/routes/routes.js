@@ -11,6 +11,8 @@ export const getEngineSocket = () =>
   });
 
 export const initRoutes = ({ msg }) => {
+  msg.on(...predictOnGridHandler);
+
   engineSocket = msg.ws('/engineSocket');
   engineSocketResolvers.forEach((resolve) => resolve(engineSocket));
 
