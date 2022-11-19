@@ -4,6 +4,7 @@ import { getMovedBoard } from '../../../../chss-module-engine/src/engine_new/uti
 import { getBoardPieceBalance } from '../../../../chss-module-engine/src/engine_new/utils/getBoardPieceBalance.js';
 import { getUpdatedLmfLmt } from '../../../../chss-module-engine/src/engine_new/utils/getUpdatedLmfLmt.js';
 import { runOnWorker } from '../../services/workersService.js';
+// import { getMoveFromBooks } from '../../services/openingsService';
 
 const getMoveEvaluator = async ({ game, modelName }) => {
   const prediction = await predictMove({ game, modelName });
@@ -16,6 +17,23 @@ export const predictOnGridHandler = [
     const { game, aiMultiplier, deepMoveSorters, depth } = data;
     const { nextMoves, board, lmf, lmt } = game;
     const started = Date.now();
+
+    if (nextMoves.length === 1) {
+      await new Promise((r) => setTimeout(r, 750));
+
+      return comms.send({
+        value: 0,
+        pieceValue: 0,
+        move: nextMoves[0],
+        moveStr: move2moveString(nextMoves[0]),
+        ms: Date.now() - started,
+      });
+    }
+
+    // const moveFromBooks = await getMoveFromBooks(game);
+    // if (moveFromBooks) {
+    //   console.log({ moveFromBooks });
+    // }
 
     const progress = {
       total: nextMoves.length,

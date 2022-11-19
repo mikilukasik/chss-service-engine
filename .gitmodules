@@ -4,3 +4,6 @@
 [submodule "chss-module-engine"]
 	path = chss-module-engine
 	url = git@github.com:mikilukasik/chss-module-engine.git
+[submodule "chess-tools"]
+	path = chess-tools
+	url = https://github.com/mikilukasik/chess-tools
