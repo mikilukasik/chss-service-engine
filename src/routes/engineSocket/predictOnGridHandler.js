@@ -4,7 +4,7 @@ import { getMovedBoard } from '../../../../chss-module-engine/src/engine_new/uti
 import { getBoardPieceBalance } from '../../../../chss-module-engine/src/engine_new/utils/getBoardPieceBalance.js';
 import { getUpdatedLmfLmt } from '../../../../chss-module-engine/src/engine_new/utils/getUpdatedLmfLmt.js';
 import { runOnWorker } from '../../services/workersService.js';
-// import { getMoveFromBooks } from '../../services/openingsService';
+import { getMovesFromBooks } from '../../services/openingsService.js';
 
 const getMoveEvaluator = async ({ game, modelName }) => {
   const prediction = await predictMove({ game, modelName });
@@ -30,10 +30,7 @@ export const predictOnGridHandler = [
       });
     }
 
-    // const moveFromBooks = await getMoveFromBooks(game);
-    // if (moveFromBooks) {
-    //   console.log({ moveFromBooks });
-    // }
+    const movesFromBooksPromise = getMovesFromBooks(game);
 
     const progress = {
       total: nextMoves.length,
@@ -160,6 +157,27 @@ export const predictOnGridHandler = [
         });
       }),
     );
+
+    const movesFromBooks = await movesFromBooksPromise;
+
+    if (movesFromBooks && movesFromBooks.length) {
+      let willUseSecondBest = false;
+
+      if (winningMove === movesFromBooks[1]) {
+        // random select move
+        willUseSecondBest = Math.random() < 0.4;
+      }
+
+      console.log(`Book move, random: ${willUseSecondBest}`);
+
+      return comms.send({
+        value: 0,
+        pieceValue: 0,
+        move: movesFromBooks[willUseSecondBest ? 1 : 0],
+        moveStr: move2moveString(movesFromBooks[willUseSecondBest ? 1 : 0]),
+        ms: Date.now() - started,
+      });
+    }
 
     return comms.send({
       value,
