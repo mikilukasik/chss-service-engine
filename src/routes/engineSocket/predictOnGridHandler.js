@@ -5,6 +5,7 @@ import { getBoardPieceBalance } from '../../../../chss-module-engine/src/engine_
 import { getUpdatedLmfLmt } from '../../../../chss-module-engine/src/engine_new/utils/getUpdatedLmfLmt.js';
 import { runOnWorker } from '../../services/workersService.js';
 import { getMovesFromBooks } from '../../services/openingsService.js';
+import { board2fen } from '../../../chss-module-engine/src/engine_new/transformers/board2fen.js';
 
 const getMoveEvaluator = async ({ game, modelName }) => {
   const prediction = await predictMove({ game, modelName });
@@ -14,8 +15,8 @@ const getMoveEvaluator = async ({ game, modelName }) => {
 export const predictOnGridHandler = [
   'predictOnGrid',
   async (data, comms) => {
-    const { game, aiMultiplier, deepMoveSorters, depth } = data;
-    const { nextMoves, board, lmf, lmt } = game;
+    const { game, aiMultiplier, deepMoveSorters, depth, repeatedFenPenality } = data;
+    const { nextMoves, board, lmf, lmt, allPastFens } = game;
     const started = Date.now();
 
     if (nextMoves.length === 1) {
@@ -41,7 +42,8 @@ export const predictOnGridHandler = [
 
     const moveEvaluator = await getMoveEvaluator({ game, modelName: modelName });
     const moveAiValues = nextMoves.map(moveEvaluator);
-    const wantsToDraw = board[64] ? getBoardPieceBalance(board) < 0 : getBoardPieceBalance(board) > 0;
+    const boardPieceBalance = getBoardPieceBalance(board);
+    const wantsToDraw = board[64] ? boardPieceBalance < 0 : boardPieceBalance > 0;
 
     const sortedMoves = new Array(nextMoves.length)
       .fill(0)
@@ -69,12 +71,20 @@ export const predictOnGridHandler = [
           const movedBoard = Array.from(getMovedBoard(move, board));
           const nextLm = getUpdatedLmfLmt({ move, lmf, lmt });
 
+          const pastMatchCount = allPastFens.filter((fen) => fen === board2fen(movedBoard)).length;
+
+          let loopValue = 0;
+          if (pastMatchCount > 0) {
+            loopValue = pastMatchCount === 1 ? repeatedFenPenality * (wantsToDraw ? 1 : -1) : -boardPieceBalance;
+          }
+          // console.log({ pastMatchCount, loopValue });
+
           const params = {
             board: movedBoard,
             depth: depth - 1,
             alpha: value,
             beta: 999999,
-            valueToAdd: moveAiValue,
+            valueToAdd: moveAiValue + loopValue,
             deepMoveSorters,
             lmf: nextLm.lmf,
             lmt: nextLm.lmt,
@@ -122,12 +132,20 @@ export const predictOnGridHandler = [
         const movedBoard = Array.from(getMovedBoard(move, board));
         const nextLm = getUpdatedLmfLmt({ move, lmf, lmt });
 
+        const pastMatchCount = allPastFens.filter((fen) => fen === board2fen(movedBoard)).length;
+
+        let loopValue = 0;
+        if (pastMatchCount > 0) {
+          loopValue = pastMatchCount === 1 ? repeatedFenPenality * (wantsToDraw ? 1 : -1) : boardPieceBalance;
+        }
+        // console.log({ pastMatchCount, loopValue }, 2);
+
         const params = {
           board: movedBoard,
           depth: depth - 1,
           alpha: -999999,
           beta: value,
-          valueToAdd: moveAiValue,
+          valueToAdd: moveAiValue - loopValue,
           deepMoveSorters,
           lmf: nextLm.lmf,
           lmt: nextLm.lmt,
@@ -165,6 +183,7 @@ export const predictOnGridHandler = [
 
       if (winningMove === movesFromBooks[1]) {
         // random select move
+        console.log('chance for random');
         willUseSecondBest = Math.random() < 0.4;
       }
 
