@@ -58,7 +58,7 @@ export const predictOnGridHandler = [
 
     const instructBusyClients = (cmd, data) => {
       Object.keys(busyClients).forEach((id) => {
-        busyClients[id]({ cmd, data, id });
+        busyClients[id]({ cmd, data });
       });
     };
 
@@ -93,12 +93,22 @@ export const predictOnGridHandler = [
           };
           minimaxParamsArr.push(params);
 
-          let id;
-          return runOnWorker('minimax', params, ({ sendData, key }) => {
-            id = key;
-            busyClients[key] = sendData;
+          // const dataHandler = ({ setAlpha }) => {
+          //   if (setAlpha && setAlpha > value) {
+          //     instructBusyClients('setAlpha', setAlpha);
+          //     minimaxParamsArr.forEach((p) => (p.alpha = setAlpha));
+          //   }
+          // };
+
+          return runOnWorker('minimax', params, {
+            onWorkerAssign: ({ sendData, key }) => {
+              busyClients[key] = sendData;
+            },
+            onWorkerDeassign: ({ key }) => {
+              delete busyClients[key];
+            },
+            // dataHandler,
           }).then((nmVal) => {
-            delete busyClients[id];
             progress.completed += 1;
 
             if (nmVal > value) {
@@ -138,7 +148,6 @@ export const predictOnGridHandler = [
         if (pastMatchCount > 0) {
           loopValue = pastMatchCount === 1 ? repeatedFenPenality * (wantsToDraw ? 1 : -1) : boardPieceBalance;
         }
-        // console.log({ pastMatchCount, loopValue }, 2);
 
         const params = {
           board: movedBoard,
@@ -154,12 +163,22 @@ export const predictOnGridHandler = [
         };
         minimaxParamsArr.push(params);
 
-        let id;
-        return runOnWorker('minimax', params, ({ sendData, key }) => {
-          id = key;
-          busyClients[key] = sendData;
+        // const dataHandler = ({ setBeta }) => {
+        //   if (setBeta && setBeta < value) {
+        //     instructBusyClients('setBeta', setBeta);
+        //     minimaxParamsArr.forEach((p) => (p.beta = setBeta));
+        //   }
+        // };
+
+        return runOnWorker('minimax', params, {
+          onWorkerAssign: ({ sendData, key }) => {
+            busyClients[key] = sendData;
+          },
+          onWorkerDeassign: ({ key }) => {
+            delete busyClients[key];
+          },
+          // dataHandler,
         }).then((nmVal) => {
-          delete busyClients[id];
           progress.completed += 1;
 
           if (nmVal < value) {

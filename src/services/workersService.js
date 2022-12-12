@@ -1,15 +1,19 @@
+// import { move2moveString } from '../../../chss-module-engine/src/engine_new/transformers/move2moveString.js';
 import { getEngineSocket } from '../routes/routes.js';
 
 const WORKER_TIMEOUT = 30000;
 
 const nextAvailableConnectionResolvers = [];
 const connectionMetas = {};
+const ongoingTasks = {};
 
 const assignConnectionMeta = ({ key }, valueObj) => {
   connectionMetas[key] = Object.assign(connectionMetas[key] || {}, valueObj);
 };
 
 const getConnMeta = ({ key }) => connectionMetas[key] || {};
+
+const tryToHelpOngoingTask = () => {};
 
 const onSocketOpen = (connection) => {
   assignConnectionMeta(connection, { busy: true });
@@ -19,6 +23,8 @@ const onSocketOpen = (connection) => {
       pendingConnectionResolver(connection);
       return;
     }
+
+    if (tryToHelpOngoingTask(connection)) return;
 
     assignConnectionMeta(connection, { busy: false });
   });
@@ -34,7 +40,7 @@ const getNextAvailableConnection = async () => {
       const timeoutCountDiff = (getConnMeta(b).timeoutCount || 0) - (getConnMeta(a).timeoutCount || 0);
       if (timeoutCountDiff !== 0) return timeoutCountDiff;
 
-      return a.cookies.get('CHSS_CLIENT_SPEED') - b.cookies.get('CHSS_CLIENT_SPEED');
+      return b.cookies.get('CHSS_CLIENT_SPEED_V2') - a.cookies.get('CHSS_CLIENT_SPEED_V2');
     })
     .pop();
 
@@ -44,8 +50,22 @@ const getNextAvailableConnection = async () => {
   return availableConnection;
 };
 
-export const runOnWorker = async (command, data, cb) => {
+export const runOnWorker = async (
+  command,
+  data,
+  {
+    onWorkerAssign = () => {
+      console.log('empty');
+    },
+    onWorkerDeassign = () => {
+      console.log('empty');
+    },
+    taskId = Math.random(),
+    // dataHandler = () => {},
+  } = {},
+) => {
   const connection = await getNextAvailableConnection();
+
   let timedOut = false;
   const response = await new Promise((resolve) => {
     const timeout = setTimeout(async () => {
@@ -54,16 +74,42 @@ export const runOnWorker = async (command, data, cb) => {
       assignConnectionMeta(connection, { timeoutCount: (getConnMeta(connection).timeoutCount || 0) + 1 });
       console.log('A worker timed out', getConnMeta(connection));
 
-      return resolve(await runOnWorker(command, data, cb));
+      onWorkerDeassign({ key: taskId });
+      return resolve(await runOnWorker(command, data, { onWorkerAssign, onWorkerDeassign, taskId }));
     }, WORKER_TIMEOUT);
 
     connection
-      .do(command, data, ({ data: sendData }) => cb({ sendData, key: connection.key }))
+      .do(command, data, ({ data: sendData /* , onData */ }) => {
+        // onData(dataHandler);
+        onWorkerAssign({ sendData, key: taskId });
+
+        if (!ongoingTasks[taskId])
+          ongoingTasks[taskId] = {
+            taskId,
+            command,
+            data,
+            onWorkerAssign,
+            onWorkerDeassign,
+            resolve,
+            connections: {},
+          };
+        ongoingTasks[taskId].connections[connection.key] = { connection, sendData, startedAt: Date.now() };
+      })
       .then((result) => {
         clearTimeout(timeout);
-        if (!timedOut) return resolve(result);
+        delete ongoingTasks[taskId].connections[connection.key];
+
+        // ongoingTasks[taskId].connections.forEach(({ sendData }) => {
+        //   sendData;
+        // });
+
+        if (!timedOut) {
+          onWorkerDeassign({ key: taskId });
+          return resolve(result);
+        }
 
         console.log('slow worker returned', connection.key, getConnMeta(connection));
+        // we will not try to use this worker to speed up any ongoing tasks, it was already too slow.. maybe next time
         assignConnectionMeta(connection, { busy: false });
       });
   });
@@ -75,6 +121,8 @@ export const runOnWorker = async (command, data, cb) => {
     pendingConnectionResolver(connection);
     return response;
   }
+
+  if (tryToHelpOngoingTask(connection)) return response;
 
   assignConnectionMeta(connection, { busy: false });
   return response;
