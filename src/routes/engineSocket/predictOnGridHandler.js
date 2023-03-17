@@ -3,9 +3,10 @@ import { move2moveString } from '../../../../chss-module-engine/src/engine_new/t
 import { getMovedBoard } from '../../../../chss-module-engine/src/engine_new/utils/getMovedBoard.js';
 import { getBoardPieceBalance } from '../../../../chss-module-engine/src/engine_new/utils/getBoardPieceBalance.js';
 import { getUpdatedLmfLmt } from '../../../../chss-module-engine/src/engine_new/utils/getUpdatedLmfLmt.js';
-import { runOnWorker } from '../../services/workersService.js';
+// import { runOnWorker } from '../../services/workersService.js';
 import { getMovesFromBooks } from '../../services/openingsService.js';
 import { board2fen } from '../../../chss-module-engine/src/engine_new/transformers/board2fen.js';
+import { runOnSubWorker } from '../../services/subWorkersService.js';
 
 const getMoveEvaluator = async ({ game, modelName }) => {
   const prediction = await predictMove({ game, modelName });
@@ -100,7 +101,7 @@ export const predictOnGridHandler = [
           //   }
           // };
 
-          return runOnWorker('minimax', params, {
+          return runOnSubWorker('minimax', params, {
             onWorkerAssign: ({ sendData, key }) => {
               busyClients[key] = sendData;
             },
@@ -170,7 +171,7 @@ export const predictOnGridHandler = [
         //   }
         // };
 
-        return runOnWorker('minimax', params, {
+        return runOnSubWorker('minimax', params, {
           onWorkerAssign: ({ sendData, key }) => {
             busyClients[key] = sendData;
           },

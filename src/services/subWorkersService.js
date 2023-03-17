@@ -1,5 +1,5 @@
 // import { move2moveString } from '../../../chss-module-engine/src/engine_new/transformers/move2moveString.js';
-import { getMainWorkerSocket } from '../routes/routes.js';
+import { getEngineSocket } from '../routes/routes.js';
 
 const WORKER_TIMEOUT = 30000;
 
@@ -17,23 +17,27 @@ const tryToHelpOngoingTask = () => {};
 
 const onSocketOpen = (connection) => {
   assignConnectionMeta(connection, { busy: true });
-  connection.do('init').then(() => {
-    const pendingConnectionResolver = nextAvailableConnectionResolvers.pop();
-    if (pendingConnectionResolver) {
-      pendingConnectionResolver(connection);
-      return;
-    }
+  connection
+    .do('init')
+    .then((a) => {
+      console.log(a);
+      const pendingConnectionResolver = nextAvailableConnectionResolvers.pop();
+      if (pendingConnectionResolver) {
+        pendingConnectionResolver(connection);
+        return;
+      }
 
-    if (tryToHelpOngoingTask(connection)) return;
+      if (tryToHelpOngoingTask(connection)) return;
 
-    assignConnectionMeta(connection, { busy: false });
-  });
+      assignConnectionMeta(connection, { busy: false });
+    })
+    .catch(console.error);
 };
 
 const onSocketClose = ({ key }) => delete connectionMetas[key];
 
 const getNextAvailableConnection = async () => {
-  const { connections } = await getMainWorkerSocket();
+  const { connections } = await getEngineSocket();
   const availableConnection = connections
     .filter((c) => !getConnMeta(c).busy)
     .sort((a, b) => {
@@ -50,7 +54,7 @@ const getNextAvailableConnection = async () => {
   return availableConnection;
 };
 
-export const runOnWorker = async (
+export const runOnSubWorker = async (
   command,
   data,
   {
@@ -75,7 +79,7 @@ export const runOnWorker = async (
       console.log('A worker timed out', getConnMeta(connection));
 
       onWorkerDeassign({ key: taskId });
-      return resolve(await runOnWorker(command, data, { onWorkerAssign, onWorkerDeassign, taskId }));
+      return resolve(await runOnSubWorker(command, data, { onWorkerAssign, onWorkerDeassign, taskId }));
     }, WORKER_TIMEOUT);
 
     connection
@@ -128,8 +132,8 @@ export const runOnWorker = async (
   return response;
 };
 
-export const initWorkersService = async () => {
-  const engineSocket = await getMainWorkerSocket();
+export const initSubWorkersService = async () => {
+  const engineSocket = await getEngineSocket();
 
   engineSocket.onEvt('open', onSocketOpen);
   engineSocket.onEvt('close', onSocketClose);

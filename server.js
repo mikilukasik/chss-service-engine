@@ -1,5 +1,6 @@
 import msgService from './msg/src/service.js';
 import { initRoutes } from './src/routes/routes.js';
+import { initSubWorkersService } from './src/services/subWorkersService.js';
 import { initWorkersService } from './src/services/workersService.js';
 
 const SERVICE_NAME = 'chss-service-engine';
@@ -18,5 +19,6 @@ msg
     console.log('MSG connected: ' + SERVICE_NAME);
     initRoutes({ msg });
     initWorkersService();
+    initSubWorkersService();
   })
   .catch(console.error);
